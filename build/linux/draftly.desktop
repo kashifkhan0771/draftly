@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Draftly
+Comment=Local-first. Privacy-native. Beautifully simple.
+Exec=draftly
+Icon=draftly
+Type=Application
+Categories=Office;TextEditor;
+StartupWMClass=draftly

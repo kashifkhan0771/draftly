@@ -1,0 +1,60 @@
+name: CI
+
+# Checks that Draftly still builds on Linux, macOS and Windows for every pull request.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  WAILS_VERSION: v2.12.0
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            wails_args: -platform linux/amd64 -tags webkit2_41
+            go_tags: -tags webkit2_41
+          - os: macos-latest
+            wails_args: -platform darwin/universal
+            go_tags: ""
+          - os: windows-latest
+            wails_args: -platform windows/amd64
+            go_tags: ""
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      # wails build also builds the frontend (tsc + vite) and regenerates bindings
+      - name: Build app
+        run: wails build ${{ matrix.wails_args }}
+
+      - name: Go vet
+        run: go vet ${{ matrix.go_tags }} ./...
+
+      - name: Go test
+        run: go test ${{ matrix.go_tags }} ./...

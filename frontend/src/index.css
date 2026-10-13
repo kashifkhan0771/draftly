@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ── Fox (default) ─────────────────────────────────── */
+  :root,
+  [data-theme="fox"] {
+    --th-accent: #d4580a;
+    --th-accent-hover: #c24008;
+    --th-accent-light: #FB923C;
+    --th-bg: #0F0F10;
+    --th-sidebar: #1A1A1E;
+    --th-surface: #242428;
+    --th-text: #F0F0F0;
+    --th-text-muted: #888892;
+    --th-border: rgba(255,255,255,0.06);
+    color-scheme: dark;
+  }
+
+  /* ── Raven ─────────────────────────────────────────── */
+  [data-theme="raven"] {
+    --th-accent: #a78bfa;
+    --th-accent-hover: #8b6ff0;
+    --th-accent-light: #c4b5fd;
+    --th-bg: #050508;
+    --th-sidebar: #0e0e14;
+    --th-surface: #181820;
+    --th-text: #E8E8F0;
+    --th-text-muted: #6e6e82;
+    --th-border: rgba(255,255,255,0.06);
+    color-scheme: dark;
+  }
+
+  /* ── Moose ─────────────────────────────────────────── */
+  [data-theme="moose"] {
+    --th-accent: #8B5E3C;
+    --th-accent-hover: #7a4f30;
+    --th-accent-light: #c49a6c;
+    --th-bg: #100d09;
+    --th-sidebar: #1a1510;
+    --th-surface: #24201a;
+    --th-text: #E8E0D4;
+    --th-text-muted: #8a8070;
+    --th-border: rgba(255,255,255,0.06);
+    color-scheme: dark;
+  }
+
+  /* ── Penguin (light) ────────────────────────────────── */
+  [data-theme="penguin"] {
+    --th-accent: #1a1a1a;
+    --th-accent-hover: #000000;
+    --th-accent-light: #555555;
+    --th-bg: #ffffff;
+    --th-sidebar: #f4f4f4;
+    --th-surface: #e8e8e8;
+    --th-text: #1a1a1a;
+    --th-text-muted: #777777;
+    --th-border: rgba(0,0,0,0.08);
+    color-scheme: light;
+  }
+
+  /* ── Polar Bear (light) ────────────────────────────── */
+  [data-theme="polarbear"] {
+    --th-accent: #2563eb;
+    --th-accent-hover: #1d4ed8;
+    --th-accent-light: #60a5fa;
+    --th-bg: #f8f9ff;
+    --th-sidebar: #eef0f8;
+    --th-surface: #dde0ee;
+    --th-text: #1e293b;
+    --th-text-muted: #64748b;
+    --th-border: rgba(0,0,0,0.08);
+    color-scheme: light;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--th-border);
+  }
+
+  body {
+    background-color: var(--th-bg);
+    color: var(--th-text);
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Custom scrollbar with theme accent */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--th-accent) 40%, transparent);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--th-accent) 60%, transparent);
+  }
+
+  /* Text selection highlight */
+  ::selection {
+    background: color-mix(in srgb, var(--th-accent) 20%, transparent);
+  }
+}
+
+/* TipTap editor */
+.ProseMirror {
+  caret-color: var(--th-accent);
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+.ProseMirror:focus {
+  outline: none;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: var(--th-text-muted);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

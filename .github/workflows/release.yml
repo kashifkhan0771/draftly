@@ -1,0 +1,204 @@
+name: Release
+
+# Builds Draftly for every platform and publishes a GitHub Release in this repo.
+# Runs only when started by hand: Actions tab -> Release -> "Run workflow".
+# The version comes from AppVersion in backend/updater/updater.go. If a release
+# for that version already exists, nothing is built — bump AppVersion to ship.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  WAILS_VERSION: v2.12.0
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Determine the version and skip if it was already released
+  # ---------------------------------------------------------------------------
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      exists: ${{ steps.check.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version from updater
+        id: version
+        run: |
+          VERSION=$(grep -oP 'AppVersion\s*=\s*"\K[^"]+' backend/updater/updater.go)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION"    >> "$GITHUB_OUTPUT"
+
+      - name: Check if release already exists
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.version.outputs.tag }}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release ${{ steps.version.outputs.tag }} already exists, skipping."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Platform builds
+  # ---------------------------------------------------------------------------
+  build:
+    needs: version
+    if: needs.version.outputs.exists == 'false'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: draftly-linux-amd64
+          - os: macos-latest
+            artifact_name: draftly-macos-universal
+          - os: windows-latest
+            artifact_name: draftly-windows-amd64
+
+    runs-on: ${{ matrix.os }}
+
+    # Google OAuth credentials for Drive backup come from repo secrets and are
+    # baked in at link time; they are never stored in the source code.
+    env:
+      DRAFTLY_LDFLAGS: >-
+        -X github.com/kashifkhan0771/draftly/backend/gdrive.clientID=${{ secrets.GOOGLE_CLIENT_ID }}
+        -X github.com/kashifkhan0771/draftly/backend/gdrive.clientSecret=${{ secrets.GOOGLE_CLIENT_SECRET }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
+
+      # -----------------------------------------------------------------------
+      # Linux: .deb package + plain tarball for non-Debian distros
+      # -----------------------------------------------------------------------
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev imagemagick dpkg
+
+      - name: Build Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          # build the binary first so build-deb.sh packages it instead of rebuilding
+          wails build -platform linux/amd64 -tags webkit2_41 -ldflags "$DRAFTLY_LDFLAGS"
+          bash scripts/build-deb.sh ${{ needs.version.outputs.version }}
+          tar -czf build/bin/${{ matrix.artifact_name }}.tar.gz -C build/bin draftly
+
+      - name: Upload artifact (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            build/bin/*.deb
+            build/bin/*.tar.gz
+
+      # -----------------------------------------------------------------------
+      # macOS: universal .app (Intel + Apple Silicon), zipped with ditto so
+      # the bundle structure and permissions are kept
+      # -----------------------------------------------------------------------
+      - name: Build macOS app
+        if: runner.os == 'macOS'
+        run: |
+          wails build -platform darwin/universal -ldflags "$DRAFTLY_LDFLAGS"
+          ditto -c -k --keepParent build/bin/draftly.app build/bin/${{ matrix.artifact_name }}.zip
+
+      - name: Upload artifact (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: build/bin/${{ matrix.artifact_name }}.zip
+
+      # -----------------------------------------------------------------------
+      # Windows: portable .exe
+      # -----------------------------------------------------------------------
+      - name: Build Windows app
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          wails build -platform windows/amd64 -ldflags "$DRAFTLY_LDFLAGS"
+          mv build/bin/draftly.exe build/bin/${{ matrix.artifact_name }}.exe
+
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: build/bin/${{ matrix.artifact_name }}.exe
+
+  # ---------------------------------------------------------------------------
+  # Publish the GitHub Release in this repo
+  # ---------------------------------------------------------------------------
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Build release body
+        id: body
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          TAG="${{ needs.version.outputs.tag }}"
+          NOTES_FILE="releases/${TAG}.md"
+          BODY_FILE="$RUNNER_TEMP/release-body.md"
+          REPO_URL="https://github.com/${GITHUB_REPOSITORY}"
+
+          {
+            # Take only the "What's new" section from the notes file, so the
+            # install steps are not repeated next to the table below.
+            if [ -f "$NOTES_FILE" ]; then
+              awk '/^## What'"'"'s new/{flag=1; print; next} /^## /{flag=0} flag' "$NOTES_FILE"
+              echo
+            fi
+            echo "## Download"
+            echo
+            echo "| Platform | File | How to install |"
+            echo "|----------|------|----------------|"
+            echo "| **Linux** (Ubuntu / Debian / Mint) | \`draftly_${VERSION}_amd64.deb\` | \`sudo apt install ./draftly_${VERSION}_amd64.deb\` |"
+            echo "| **Linux** (other distros) | \`draftly-linux-amd64.tar.gz\` | See [README](${REPO_URL}#linux-other-distros) |"
+            echo "| **macOS** (Intel + Apple Silicon) | \`draftly-macos-universal.zip\` | See [README](${REPO_URL}#macos) for first-run steps |"
+            echo "| **Windows** 10 / 11 | \`draftly-windows-amd64.exe\` | Download and run |"
+            echo
+            echo "Full install / update / uninstall instructions → [README](${REPO_URL}#install)"
+            echo
+            echo "---"
+            echo "**Bugs or feature requests?** → [Open an issue](${REPO_URL}/issues)"
+          } > "$BODY_FILE"
+
+          echo "path=$BODY_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Draftly ${{ needs.version.outputs.tag }}
+          files: artifacts/**/*
+          body_path: ${{ steps.body.outputs.path }}
