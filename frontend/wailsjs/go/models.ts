@@ -9,6 +9,7 @@ export namespace db {
 	    createdAt: string;
 	    updatedAt: string;
 	    pinned: boolean;
+	    deletedAt: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Note(source);
@@ -24,6 +25,7 @@ export namespace db {
 	        this.createdAt = source["createdAt"];
 	        this.updatedAt = source["updatedAt"];
 	        this.pinned = source["pinned"];
+	        this.deletedAt = source["deletedAt"];
 	    }
 	}
 	export class Settings {

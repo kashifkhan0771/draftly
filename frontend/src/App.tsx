@@ -7,6 +7,7 @@ import { Pinboard } from "@/components/Pinboard";
 import { AllNotes } from "@/components/AllNotes";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { AboutPage } from "@/components/AboutPage";
+import { Trash } from "@/components/Trash";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useAppStore, isDraft, isEmptyNote, type Note } from "@/store/useAppStore";
@@ -96,6 +97,7 @@ function App() {
         createdAt: now,
         updatedAt: now,
         pinned: false,
+        deletedAt: "",
       };
       addNote(draft);
     },
@@ -162,6 +164,8 @@ function App() {
         return <AllNotes onNewNote={createNote} onDelete={handleDelete} />;
       case "about":
         return <AboutPage />;
+      case "trash":
+        return <Trash />;
       case "editor":
         if (activeNote) {
           return (

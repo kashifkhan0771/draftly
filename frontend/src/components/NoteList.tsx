@@ -48,9 +48,9 @@ export function NoteList({ onDelete }: NoteListProps) {
             onClick={() => setActiveNoteId(note.id)}
             onDelete={() =>
               showConfirm({
-                title: "Delete note?",
-                message: `"${note.title || "Untitled"}" will be permanently removed. This can't be undone.`,
-                confirmLabel: "Delete",
+                title: "Move to trash?",
+                message: `"${note.title || "Untitled"}" will move to the trash. You can restore it from there for 30 days.`,
+                confirmLabel: "Move to trash",
                 destructive: true,
                 onConfirm: () => onDelete(note.id),
               })

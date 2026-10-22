@@ -9,6 +9,7 @@ export interface Note {
   createdAt: string;
   updatedAt: string;
   pinned: boolean;
+  deletedAt: string; // empty when not in the trash
 }
 
 // Drafts live only in client state (negative IDs) until they have content.
@@ -55,7 +56,7 @@ export interface Settings {
   gdriveConnected: boolean;
 }
 
-export type View = "home" | "editor" | "pinboard" | "allnotes" | "settings" | "about";
+export type View = "home" | "editor" | "pinboard" | "allnotes" | "settings" | "about" | "trash";
 
 export interface ConfirmDialogState {
   title: string;

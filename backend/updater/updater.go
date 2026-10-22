@@ -12,7 +12,7 @@ import (
 
 const (
 	// AppVersion is the current app version. Update this on each release.
-	AppVersion = "1.0.0"
+	AppVersion = "1.1.0"
 
 	releasesRepo = "kashifkhan0771/draftly"
 	latestURL    = "https://api.github.com/repos/" + releasesRepo + "/releases/latest"

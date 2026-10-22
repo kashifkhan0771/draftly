@@ -15,6 +15,15 @@ type Store struct {
 	db *sql.DB
 }
 
+// DataDirName is the folder under the user's config directory that holds the
+// database. Dev builds set it to "draftly-dev" through -ldflags so they never
+// touch the notes of the installed app.
+var DataDirName = "draftly"
+
+// trashRetention is how long a deleted note stays in the trash before it is
+// removed for good.
+const trashRetention = 30 * 24 * time.Hour
+
 // New opens (or creates) the SQLite database in the user's config directory
 // and runs migrations. Returns a ready-to-use Store. #draftly
 func New() (*Store, error) {
@@ -22,7 +31,12 @@ func New() (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resolve db path: %w", err)
 	}
+	return open(dbPath)
+}
 
+// open opens the database at dbPath, runs migrations and clears out notes
+// that have been in the trash longer than trashRetention.
+func open(dbPath string) (*Store, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
@@ -36,6 +50,9 @@ func New() (*Store, error) {
 	s := &Store{db: db}
 	if err := s.migrate(); err != nil {
 		return nil, fmt.Errorf("migrate: %w", err)
+	}
+	if err := s.purgeTrash(time.Now().Add(-trashRetention)); err != nil {
+		return nil, fmt.Errorf("purge trash: %w", err)
 	}
 
 	return s, nil
@@ -53,7 +70,7 @@ func dbFilePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(configDir, "draftly")
+	dir := filepath.Join(configDir, DataDirName)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
@@ -100,18 +117,31 @@ func (s *Store) migrate() error {
 		_, _ = s.db.Exec("ALTER TABLE settings ADD COLUMN " + col)
 	}
 
+	// Trash: an empty deleted_at means the note is not in the trash.
+	_, _ = s.db.Exec("ALTER TABLE notes ADD COLUMN deleted_at TEXT NOT NULL DEFAULT ''")
+
 	return nil
 }
 
 // --- Note CRUD ---
 
-// GetNotes returns all notes ordered by pinned first, then most recently updated.
+// GetNotes returns all notes that are not in the trash, ordered by pinned
+// first, then most recently updated.
 func (s *Store) GetNotes() ([]Note, error) {
+	return s.queryNotes(`WHERE deleted_at = '' ORDER BY pinned DESC, updated_at DESC`)
+}
+
+// GetTrashedNotes returns the notes in the trash, most recently deleted first.
+func (s *Store) GetTrashedNotes() ([]Note, error) {
+	return s.queryNotes(`WHERE deleted_at != '' ORDER BY deleted_at DESC`)
+}
+
+// queryNotes runs a SELECT over the notes table with the given WHERE / ORDER BY
+// clause and scans the rows into notes.
+func (s *Store) queryNotes(clause string) ([]Note, error) {
 	rows, err := s.db.Query(`
-		SELECT id, title, content, note_type, metadata, pinned, created_at, updated_at
-		FROM notes
-		ORDER BY pinned DESC, updated_at DESC
-	`)
+		SELECT id, title, content, note_type, metadata, pinned, created_at, updated_at, deleted_at
+		FROM notes ` + clause)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +151,7 @@ func (s *Store) GetNotes() ([]Note, error) {
 	for rows.Next() {
 		var n Note
 		var pinned int
-		if err := rows.Scan(&n.ID, &n.Title, &n.Content, &n.NoteType, &n.Metadata, &pinned, &n.CreatedAt, &n.UpdatedAt); err != nil {
+		if err := rows.Scan(&n.ID, &n.Title, &n.Content, &n.NoteType, &n.Metadata, &pinned, &n.CreatedAt, &n.UpdatedAt, &n.DeletedAt); err != nil {
 			return nil, err
 		}
 		n.Pinned = pinned == 1
@@ -168,9 +198,32 @@ func (s *Store) SaveNote(n Note) (Note, error) {
 	return n, nil
 }
 
-// DeleteNote removes a note by ID.
+// DeleteNote moves a note to the trash. It can be brought back with RestoreNote
+// until it is removed for good.
 func (s *Store) DeleteNote(id int64) error {
-	_, err := s.db.Exec("DELETE FROM notes WHERE id=?", id)
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := s.db.Exec("UPDATE notes SET deleted_at=? WHERE id=?", now, id)
+	return err
+}
+
+// RestoreNote takes a note out of the trash.
+func (s *Store) RestoreNote(id int64) error {
+	_, err := s.db.Exec("UPDATE notes SET deleted_at='' WHERE id=?", id)
+	return err
+}
+
+// DeleteNoteForever removes a note from the trash for good. Notes that are not
+// in the trash are left alone.
+func (s *Store) DeleteNoteForever(id int64) error {
+	_, err := s.db.Exec("DELETE FROM notes WHERE id=? AND deleted_at != ''", id)
+	return err
+}
+
+// purgeTrash removes notes that were moved to the trash before cutoff.
+// RFC 3339 UTC timestamps sort the same as text, so a plain < works.
+func (s *Store) purgeTrash(cutoff time.Time) error {
+	_, err := s.db.Exec("DELETE FROM notes WHERE deleted_at != '' AND deleted_at < ?",
+		cutoff.UTC().Format(time.RFC3339))
 	return err
 }
 
