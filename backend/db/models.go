@@ -23,6 +23,7 @@ type Note struct {
 	CreatedAt string   `json:"createdAt"` // ISO 8601
 	UpdatedAt string   `json:"updatedAt"` // ISO 8601
 	Pinned    bool     `json:"pinned"`
+	DeletedAt string   `json:"deletedAt"` // ISO 8601, empty when not in the trash
 }
 
 // Settings holds app-wide preferences

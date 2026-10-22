@@ -60,9 +60,24 @@ func (a *App) SaveNote(note db.Note) (db.Note, error) {
 	return a.store.SaveNote(note)
 }
 
-// DeleteNote removes a note by ID.
+// DeleteNote moves a note to the trash.
 func (a *App) DeleteNote(id int64) error {
 	return a.store.DeleteNote(id)
+}
+
+// GetTrashedNotes returns the notes in the trash.
+func (a *App) GetTrashedNotes() ([]db.Note, error) {
+	return a.store.GetTrashedNotes()
+}
+
+// RestoreNote takes a note out of the trash.
+func (a *App) RestoreNote(id int64) error {
+	return a.store.RestoreNote(id)
+}
+
+// DeleteNoteForever removes a note from the trash for good.
+func (a *App) DeleteNoteForever(id int64) error {
+	return a.store.DeleteNoteForever(id)
 }
 
 // GetSettings returns the app settings.

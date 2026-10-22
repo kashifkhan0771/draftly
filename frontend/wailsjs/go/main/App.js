@@ -18,6 +18,10 @@ export function DeleteNote(arg1) {
   return window['go']['main']['App']['DeleteNote'](arg1);
 }
 
+export function DeleteNoteForever(arg1) {
+  return window['go']['main']['App']['DeleteNoteForever'](arg1);
+}
+
 export function ExportNotePDF(arg1) {
   return window['go']['main']['App']['ExportNotePDF'](arg1);
 }
@@ -50,12 +54,20 @@ export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }
 
+export function GetTrashedNotes() {
+  return window['go']['main']['App']['GetTrashedNotes']();
+}
+
 export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
 }
 
 export function OpenReleasePage() {
   return window['go']['main']['App']['OpenReleasePage']();
+}
+
+export function RestoreNote(arg1) {
+  return window['go']['main']['App']['RestoreNote'](arg1);
 }
 
 export function SaveNote(arg1) {

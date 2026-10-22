@@ -1,4 +1,4 @@
-import { Settings, Home, Pin, Info, Files } from "lucide-react";
+import { Settings, Home, Pin, Info, Files, Trash2 } from "lucide-react";
 import { NoteList } from "@/components/NoteList";
 import { useAppStore } from "@/store/useAppStore";
 import { cn } from "@/lib/utils";
@@ -56,6 +56,12 @@ export function Sidebar({ onDeleteNote }: SidebarProps) {
           label="About"
           isActive={view === "about"}
           onClick={() => setView("about")}
+        />
+        <NavButton
+          icon={<Trash2 className="h-4 w-4" />}
+          label="Trash"
+          isActive={view === "trash"}
+          onClick={() => setView("trash")}
         />
         <NavButton
           icon={<Settings className="h-4 w-4" />}

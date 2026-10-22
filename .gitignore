@@ -6,3 +6,4 @@ frontend/node_modules
 .DS_Store
 releases/*
 !releases/*.md
+CLAUDE.md

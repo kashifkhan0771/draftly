@@ -29,6 +29,7 @@ git clone https://github.com/kashifkhan0771/draftly.git
 cd draftly
 
 make dev            # live-reload dev mode
+make build-dev      # test build "draftly-dev", keeps its notes apart from your installed Draftly
 
 make build-linux    # Linux -> build/bin/draftly
 make build-deb      # Linux -> build/bin/draftly_VERSION_amd64.deb (needs imagemagick + dpkg)

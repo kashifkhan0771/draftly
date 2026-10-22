@@ -12,6 +12,8 @@ export function CheckForUpdate():Promise<updater.UpdateInfo>;
 
 export function DeleteNote(arg1:number):Promise<void>;
 
+export function DeleteNoteForever(arg1:number):Promise<void>;
+
 export function ExportNotePDF(arg1:number):Promise<void>;
 
 export function GDriveBackup():Promise<void>;
@@ -28,9 +30,13 @@ export function GetNotes():Promise<Array<db.Note>>;
 
 export function GetSettings():Promise<db.Settings>;
 
+export function GetTrashedNotes():Promise<Array<db.Note>>;
+
 export function GetVersion():Promise<string>;
 
 export function OpenReleasePage():Promise<void>;
+
+export function RestoreNote(arg1:number):Promise<void>;
 
 export function SaveNote(arg1:db.Note):Promise<db.Note>;
 
